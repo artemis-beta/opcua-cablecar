@@ -1,9 +1,8 @@
 import asyncio
 import enum
-from re import S
 import typing
+
 import asyncua.sync
-import asyncua.ua
 
 import cablecar.common as cab_com
 import cablecar.server as cab_server

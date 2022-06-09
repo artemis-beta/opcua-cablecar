@@ -1,9 +1,10 @@
+import asyncio
+import enum
+import logging
+import typing
+
 import asyncua.sync
 import asyncua.ua
-import typing
-import asyncio
-import logging
-import enum
 
 import cablecar.common as cab_com
 import cablecar.route as cab_route
@@ -14,6 +15,7 @@ class GripState(enum.Enum):
     ENGAGED = enum.auto()
     LOOSE = enum.auto()
     RELEASED = enum.auto()
+
 
 class Controller(enum.Enum):
     GRIP_ENGAGE = enum.auto()
@@ -29,7 +31,9 @@ class Controller(enum.Enum):
 
 class CableCar:
     def __init__(self, number: int) -> None:
-        self._logger: logging.Logger = logging.getLogger(f"CableCarSim.{self.__class__.__name__}.Car_{number}")
+        self._logger: logging.Logger = logging.getLogger(
+            f"CableCarSim.{self.__class__.__name__}.Car_{number}"
+        )
         self._number: int = number
         self._server: typing.Optional[cab_server.SimulationServer] = None
         self._forward_direction: cab_com.Direction = cab_com.Direction.FORWARD
@@ -40,49 +44,49 @@ class CableCar:
 
     @property
     def objects_node(self) -> asyncua.sync.SyncNode:
-        return self._server.get_node(asyncua.ua.TwoByteNodeId(asyncua.ua.ObjectIds.ObjectsFolder))
+        return self._server.get_node(
+            asyncua.ua.TwoByteNodeId(asyncua.ua.ObjectIds.ObjectsFolder)
+        )
 
     def _create_objects(self) -> None:
         if not self._server:
-            raise AssertionError(
-                "Cannot create objects without route assignment"
-            )
+            raise AssertionError("Cannot create objects without route assignment")
 
         self._objects["CURRENT_LOCATION"] = self.objects_node.add_variable(
             f'ns={self._namespace};s="CABLECAR_{self._number}_LOCATION"',
             f"Cable Car {self._number} Location",
-            "Depot"
+            "Depot",
         )
 
         self._objects["CURRENT_POSITION"] = self.objects_node.add_variable(
             f'ns={self._namespace};s="CABLECAR_{self._number}_POSITION"',
             f"Cable Car {self._number} Position",
-            0.0
+            0.0,
         )
 
         self._objects["GRIP_STATE"] = self.objects_node.add_variable(
             f'ns={self._namespace};s="CABLECAR_{self._number}_GRIPSTATE"',
             f"Cable Car {self._number} Grip State",
-            GripState.RELEASED.value
+            GripState.RELEASED.value,
         )
 
         self._objects["CURRENT_SPEED"] = self.objects_node.add_variable(
             f'ns={self._namespace};s="CABLECAR_{self._number}_SPEED"',
             f"Cable Car {self._number} Speed",
-            0.0
+            0.0,
         )
 
         self._objects["CONTROLLER"] = self.objects_node.add_variable(
             f'ns={self._namespace};s="CABLECAR_{self._number}_CONTROLLER"',
             f"Cable Car {self._number} Controller",
-            Controller.NONE.value
+            Controller.NONE.value,
         )
         self._objects["CONTROLLER"].set_writable()
 
         self._objects["BELL"] = self.objects_node.add_variable(
             f'ns={self._namespace};s="CABLECAR_{self._number}_BELL"',
             f"Cable Car {self._number} Bell",
-            False
+            False,
         )
 
     @property
@@ -118,7 +122,9 @@ class CableCar:
 
     def add_to_route(self, route: cab_route.Route, distance: float = 0.0) -> None:
         self._server = route.winder.server
-        self._namespace = self._server.register_namespace(f"{self.__class__.__name__}.CableCar{self._number}")
+        self._namespace = self._server.register_namespace(
+            f"{self.__class__.__name__}.CableCar{self._number}"
+        )
         self._create_objects()
         self._route = route
         self.position = distance

@@ -1,14 +1,17 @@
-import typing
-import asyncua.ua
-import asyncua.sync
 import asyncio
 import logging
+import typing
+
+import asyncua.sync
+import asyncua.ua
 
 
 class SimulationServer(asyncua.sync.Server):
     def __init__(self, port: int = 4080) -> None:
         super().__init__()
-        self._logger: logging.Logger = logging.getLogger(f"CableCarSim.{self.__class__.__name__}")
+        self._logger: logging.Logger = logging.getLogger(
+            f"CableCarSim.{self.__class__.__name__}"
+        )
         self._run_sim: bool = True
         self._async_loop: asyncio.AbstractEventLoop = asyncio.new_event_loop()
         self._async_tasks: typing.List[typing.Coroutine] = []
@@ -30,14 +33,18 @@ class SimulationServer(asyncua.sync.Server):
 
     async def launch(self) -> None:
         try:
-            await asyncio.wait([i() for i in self._async_tasks], return_when=asyncio.FIRST_COMPLETED)
+            await asyncio.wait(
+                [i() for i in self._async_tasks], return_when=asyncio.FIRST_COMPLETED
+            )
         except KeyboardInterrupt:
             return
 
     def add_variable(
         self, namespace: int, label: str, description: str, start_val: typing.Any
     ) -> asyncua.sync.SyncNode:
-        return self.objects_node.add_variable(f"ns={namespace};s={label}", description, start_val)
+        return self.objects_node.add_variable(
+            f"ns={namespace};s={label}", description, start_val
+        )
 
     def __enter__(self) -> "SimulationServer":
         self._logger.info(f"Starting server on: {self._url}")

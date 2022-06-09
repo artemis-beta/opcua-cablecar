@@ -1,13 +1,14 @@
 import asyncio
-import click
 import logging
+
+import click
 
 logging.basicConfig()
 
-import cablecar.server as cab_server
 import cablecar.car as cab_car
-import cablecar.route as cab_route
 import cablecar.power as cab_power
+import cablecar.route as cab_route
+import cablecar.server as cab_server
 
 
 @click.command()

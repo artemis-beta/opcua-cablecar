@@ -1,4 +1,5 @@
 import typing
+
 import cablecar.power as cab_power
 
 
