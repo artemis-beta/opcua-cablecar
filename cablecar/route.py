@@ -13,6 +13,10 @@ class Route:
     def winder(self) -> cab_power.Winder:
         return self._winder
 
+    @property
+    def length(self) -> float:
+        return max(self._call_points.keys())
+
     def add_stop(self, stop_name: str, distance: float) -> None:
         self._call_points[distance] = stop_name
 

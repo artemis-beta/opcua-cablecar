@@ -6,6 +6,7 @@ import typing
 import asyncua.sync
 import asyncua.ua
 
+import cablecar
 import cablecar.common as cab_com
 import cablecar.route as cab_route
 import cablecar.server as cab_server
@@ -40,13 +41,22 @@ class CableCar:
         self._route: typing.Optional[cab_route.Route] = None
         self._namespace: typing.Optional[int] = None
         self._objects: typing.Dict[str, asyncua.sync.SyncNode] = {}
+        self._controller_address: typing.Optional[str] = None
         self._acceleration: float = 0.1
+        self._brake_factor: typing.Dict[Controller, float] = {
+            Controller.RAIL_BRAKE_APPLY: 2,
+            Controller.SHOE_BRAKE_APPLY: 3
+        }
 
     @property
     def objects_node(self) -> asyncua.sync.SyncNode:
         return self._server.get_node(
             asyncua.ua.TwoByteNodeId(asyncua.ua.ObjectIds.ObjectsFolder)
         )
+
+    @property
+    def controller_address(self) -> typing.Optional[str]:
+        return self._controller_address
 
     def _create_objects(self) -> None:
         if not self._server:
@@ -67,7 +77,7 @@ class CableCar:
         self._objects["GRIP_STATE"] = self.objects_node.add_variable(
             f'ns={self._namespace};s="CABLECAR_{self._number}_GRIPSTATE"',
             f"Cable Car {self._number} Grip State",
-            GripState.RELEASED.value,
+            cablecar.enum_member_str(GripState.RELEASED)
         )
 
         self._objects["CURRENT_SPEED"] = self.objects_node.add_variable(
@@ -76,10 +86,18 @@ class CableCar:
             0.0,
         )
 
+        self._objects["RAIL_BRAKE"] = self.objects_node.add_variable(
+            f'ns={self._namespace};s="CABLECAR_{self._number}_RAIL_BRAKE"',
+            f"Cable Car {self._number} Rail Brake",
+            False,
+        )
+
+        self._controller_address = f'ns={self._namespace};s="CABLECAR_{self._number}_CONTROLLER"'
+
         self._objects["CONTROLLER"] = self.objects_node.add_variable(
-            f'ns={self._namespace};s="CABLECAR_{self._number}_CONTROLLER"',
+            self._controller_address,
             f"Cable Car {self._number} Controller",
-            Controller.NONE.value,
+            cablecar.enum_member_str(Controller.NONE)
         )
         self._objects["CONTROLLER"].set_writable()
 
@@ -91,25 +109,36 @@ class CableCar:
 
     @property
     def grip_state(self) -> GripState:
-        return GripState(self._objects["GRIP_STATE"].get_value())
+        return getattr(GripState, self._objects["GRIP_STATE"].get_value())
 
     @grip_state.setter
+    @cablecar.ignore_no_change
     def grip_state(self, state: GripState) -> None:
         self._logger.info(f"GRIP_STATE={state}")
-        self._objects["GRIP_STATE"].set_value(state.value)
+        self._objects["GRIP_STATE"].set_value(cablecar.enum_member_str(state))
+
+    @property
+    def rail_brake(self) -> bool:
+        return self._objects["RAIL_BRAKE"].get_value()
+
+    @rail_brake.setter
+    @cablecar.ignore_no_change
+    def rail_brake(self, set_on: bool) -> None:
+        self._objects["RAIL_BRAKE"].set_value(set_on)
 
     @property
     def speed(self) -> float:
         return float(self._objects["CURRENT_SPEED"].get_value())
 
     @speed.setter
-    def setter(self, speed: float) -> None:
-        self._logger.info(f"CURRENT_SPEED={speed}")
-        self._objects["CURRENT_SPEED"].set_value(speed)
+    @cablecar.ignore_no_change
+    def speed(self, value: float) -> None:
+        self._logger.info(f"CURRENT_SPEED={value}")
+        self._objects["CURRENT_SPEED"].set_value(value)
 
     @property
     def controller(self) -> Controller:
-        return Controller(self._objects["CONTROLLER"].get_value())
+        return getattr(Controller, self._objects["CONTROLLER"].get_value())
 
     @property
     def bell(self) -> bool:
@@ -142,11 +171,13 @@ class CableCar:
         return self._objects["CURRENT_LOCATION"].get_value()
 
     @position.setter
+    @cablecar.ignore_no_change
     def position(self, distance: float) -> None:
         self._logger.info(f"CURRENT_POSITION={distance}")
         self._objects["CURRENT_POSITION"].set_value(distance)
 
     @location.setter
+    @cablecar.ignore_no_change
     def location(self, location: str) -> None:
         self._logger.info(f"CURRENT_LOCATION={location}")
         self._objects["CURRENT_LOCATION"].set_value(location)
@@ -157,10 +188,19 @@ class CableCar:
             if self.controller == Controller.BELL_RING:
                 await self.ring_bell()
 
+    async def _check_rail_brake(self) -> None:
+        while self._server.running:
+            await asyncio.sleep(0.5)
+            if self.controller == Controller.RAIL_BRAKE_APPLY:
+                # In reality the driver would need to ensure
+                # the grip is released during braking
+                # in the simulation do this automatically
+                self.grip_state = GripState.RELEASED
+                self.rail_brake = True
+
     async def _check_grip_trigger(self) -> None:
         while self._server.running:
-            print("BUZZ")
-            await asyncio.sleep(1)
+            await asyncio.sleep(0.5)
             if self.controller == Controller.GRIP_ENGAGE:
                 if self.grip_state == GripState.ENGAGED:
                     continue
@@ -188,19 +228,28 @@ class CableCar:
 
     async def _drive(self) -> None:
         while self._server.running:
-            print("BEEP")
             await asyncio.sleep(1)
-            if self.grip_state == GripState.ENGAGED:
-                while self.speed < self._route.winder.speed:
+            if self.position < 0.0 or self.position > self._route.length and abs(self.speed) > 0:
+                self._logger.info("Reached route limit, stopping")
+                self.grip_state = GripState.RELEASED
+                self.controller = Controller.NONE
+                self.speed = 0.0
+                self.position = 0.0 if self.position < 0.0 else self._route.length
+                continue
+            elif self.grip_state == GripState.ENGAGED:
+                while abs(self.speed) < abs(self._route.winder.speed):
                     await asyncio.sleep(1)
-                    self.speed += self._acceleration
-                    self.position += self.speed
+                    self.speed += self._acceleration if self._route.winder.speed > 0 else -self._acceleration
+                    self.position += self.speed if self._route.winder.speed > 0 else -self.speed
                     self.location = self._route.where_am_i(self.position)
                 self.position += self.speed
                 self.location = self._route.where_am_i(self.position)
-            elif self.speed > 0:
-                while self.speed > 0:
+            elif abs(self.speed) > 0:
+                _total_deceleration: float = self._acceleration
+                if self.rail_brake:
+                    _total_deceleration *= self._brake_factor[Controller.RAIL_BRAKE_APPLY]
+                while abs(self.speed) > 0:
                     await asyncio.sleep(1)
-                    self.position += self.speed
+                    self.position += self.speed if self._route.winder.speed > 0 else -self.speed
                     self.location = self._route.where_am_i(self.position)
-                    self.speed -= self._acceleration
+                    self.speed -= _total_deceleration

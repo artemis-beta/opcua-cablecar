@@ -5,6 +5,8 @@ import typing
 import asyncua.sync
 import asyncua.ua
 
+import cablecar
+
 
 class SimulationServer(asyncua.sync.Server):
     def __init__(self, port: int = 4080) -> None:
@@ -13,9 +15,8 @@ class SimulationServer(asyncua.sync.Server):
             f"CableCarSim.{self.__class__.__name__}"
         )
         self._run_sim: bool = True
-        self._async_loop: asyncio.AbstractEventLoop = asyncio.new_event_loop()
         self._async_tasks: typing.List[typing.Coroutine] = []
-        self._url: str = f"opc.tcp://127.0.0.1:{port}/freeopcua/server"
+        self._url: str = cablecar.SERVER_URL.format(port=port)
         self.set_endpoint(self._url)
 
     @property
@@ -34,7 +35,7 @@ class SimulationServer(asyncua.sync.Server):
     async def launch(self) -> None:
         try:
             await asyncio.wait(
-                [i() for i in self._async_tasks], return_when=asyncio.FIRST_COMPLETED
+                [asyncio.create_task(i()) for i in self._async_tasks]
             )
         except KeyboardInterrupt:
             return
@@ -46,12 +47,15 @@ class SimulationServer(asyncua.sync.Server):
             f"ns={namespace};s={label}", description, start_val
         )
 
+    def stop(self) -> None:
+        super().stop()
+        self._run_sim = False
+
     def __enter__(self) -> "SimulationServer":
         self._logger.info(f"Starting server on: {self._url}")
         self.start()
         return self
 
     def __exit__(self, *args, **kwargs) -> None:
-        self._run_sim = False
         self._logger.info("Stopping server")
         self.stop()
