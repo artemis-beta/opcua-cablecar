@@ -13,4 +13,5 @@ def ignore_no_change(func: typing.Callable) -> None:
         if getattr(self, func.__name__) == value:
             return
         func(self, value)
+
     return _inner_func

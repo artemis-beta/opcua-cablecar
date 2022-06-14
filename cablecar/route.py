@@ -15,7 +15,7 @@ class Route:
 
     @property
     def length(self) -> float:
-        return max(self._call_points.keys())
+        return max(self._call_points.keys()) if self._call_points else 0
 
     def add_stop(self, stop_name: str, distance: float) -> None:
         self._call_points[distance] = stop_name

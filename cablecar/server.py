@@ -2,6 +2,7 @@ import asyncio
 import logging
 import typing
 
+import asyncua.crypto.permission_rules as asyncya_crypto_rules
 import asyncua.sync
 import asyncua.ua
 
@@ -18,6 +19,7 @@ class SimulationServer(asyncua.sync.Server):
         self._async_tasks: typing.List[typing.Coroutine] = []
         self._url: str = cablecar.SERVER_URL.format(port=port)
         self.set_endpoint(self._url)
+        self.set_security_policy([asyncua.ua.SecurityPolicyType.NoSecurity])
 
     @property
     def running(self) -> bool:
@@ -34,11 +36,9 @@ class SimulationServer(asyncua.sync.Server):
 
     async def launch(self) -> None:
         try:
-            await asyncio.wait(
-                [asyncio.create_task(i()) for i in self._async_tasks]
-            )
+            await asyncio.wait([asyncio.create_task(i()) for i in self._async_tasks])
         except KeyboardInterrupt:
-            return
+            self._run_sim = False
 
     def add_variable(
         self, namespace: int, label: str, description: str, start_val: typing.Any
@@ -47,7 +47,7 @@ class SimulationServer(asyncua.sync.Server):
             f"ns={namespace};s={label}", description, start_val
         )
 
-    def stop(self) -> None:
+    async def stop(self) -> None:
         super().stop()
         self._run_sim = False
 

@@ -45,7 +45,7 @@ class CableCar:
         self._acceleration: float = 0.1
         self._brake_factor: typing.Dict[Controller, float] = {
             Controller.RAIL_BRAKE_APPLY: 2,
-            Controller.SHOE_BRAKE_APPLY: 3
+            Controller.SHOE_BRAKE_APPLY: 3,
         }
 
     @property
@@ -77,7 +77,7 @@ class CableCar:
         self._objects["GRIP_STATE"] = self.objects_node.add_variable(
             f'ns={self._namespace};s="CABLECAR_{self._number}_GRIPSTATE"',
             f"Cable Car {self._number} Grip State",
-            cablecar.enum_member_str(GripState.RELEASED)
+            cablecar.enum_member_str(GripState.RELEASED),
         )
 
         self._objects["CURRENT_SPEED"] = self.objects_node.add_variable(
@@ -92,12 +92,14 @@ class CableCar:
             False,
         )
 
-        self._controller_address = f'ns={self._namespace};s="CABLECAR_{self._number}_CONTROLLER"'
+        self._controller_address = (
+            f'ns={self._namespace};s="CABLECAR_{self._number}_CONTROLLER"'
+        )
 
         self._objects["CONTROLLER"] = self.objects_node.add_variable(
             self._controller_address,
             f"Cable Car {self._number} Controller",
-            cablecar.enum_member_str(Controller.NONE)
+            cablecar.enum_member_str(Controller.NONE),
         )
         self._objects["CONTROLLER"].set_writable()
 
@@ -138,7 +140,10 @@ class CableCar:
 
     @property
     def controller(self) -> Controller:
-        return getattr(Controller, self._objects["CONTROLLER"].get_value())
+        try:
+            return getattr(Controller, self._objects["CONTROLLER"].get_value())
+        except AttributeError:
+            self._objects["CONTROLLER"].set_value("NONE")
 
     @property
     def bell(self) -> bool:
@@ -229,7 +234,11 @@ class CableCar:
     async def _drive(self) -> None:
         while self._server.running:
             await asyncio.sleep(1)
-            if self.position < 0.0 or self.position > self._route.length and abs(self.speed) > 0:
+            if (
+                self.position < 0.0
+                or self.position > self._route.length
+                and abs(self.speed) > 0
+            ):
                 self._logger.info("Reached route limit, stopping")
                 self.grip_state = GripState.RELEASED
                 self.controller = Controller.NONE
@@ -239,17 +248,27 @@ class CableCar:
             elif self.grip_state == GripState.ENGAGED:
                 while abs(self.speed) < abs(self._route.winder.speed):
                     await asyncio.sleep(1)
-                    self.speed += self._acceleration if self._route.winder.speed > 0 else -self._acceleration
-                    self.position += self.speed if self._route.winder.speed > 0 else -self.speed
+                    self.speed += (
+                        self._acceleration
+                        if self._route.winder.speed > 0
+                        else -self._acceleration
+                    )
+                    self.position += (
+                        self.speed if self._route.winder.speed > 0 else -self.speed
+                    )
                     self.location = self._route.where_am_i(self.position)
                 self.position += self.speed
                 self.location = self._route.where_am_i(self.position)
             elif abs(self.speed) > 0:
                 _total_deceleration: float = self._acceleration
                 if self.rail_brake:
-                    _total_deceleration *= self._brake_factor[Controller.RAIL_BRAKE_APPLY]
+                    _total_deceleration *= self._brake_factor[
+                        Controller.RAIL_BRAKE_APPLY
+                    ]
                 while abs(self.speed) > 0:
                     await asyncio.sleep(1)
-                    self.position += self.speed if self._route.winder.speed > 0 else -self.speed
+                    self.position += (
+                        self.speed if self._route.winder.speed > 0 else -self.speed
+                    )
                     self.location = self._route.where_am_i(self.position)
                     self.speed -= _total_deceleration

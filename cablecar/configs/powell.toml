@@ -1,0 +1,32 @@
+[winder]
+name = "Powell"
+
+[route]
+"Hyde St & Beach St" = 0
+"Hyde St & North Point St" = 10
+"Hyde St & Bay St" = 100
+"Hyde St & Chestnut St" = 150
+"Hyde St & Lombard St" = 200
+"Hyde St & Greenwich St" = 250
+"Hyde St & Filbert St" = 300
+"Hyde St & Union St" = 350
+"Hyde St & Green St" = 400
+"Hyde St & Vallejo St" = 450
+"Hyde St & Broadway" = 500
+"Hyde St & Pacific Ave" = 550
+"Hyde St & Jackson St" = 600
+"Washington St & Leavenworth St" = 650
+"Washington St & Jones St" = 700
+"Washington St & Taylor St" = 750
+"Washington St & Mason St" = 800
+"Washington St & Powell St" = 850
+"Powell St & Clay St" = 900
+"Powell St & Sacramento St" = 950
+"Powell St & California St" = 1000
+"Powell St & Pine St" = 1050
+"Powell St & Bush St" = 1100
+"Powell St & Sutter St" = 1150
+"Powell St & Post St" = 1200
+"Powell St & Geary St" = 1250
+"Powell St & O'Farrell St" = 1300
+"Powell St & Market St" = 1350

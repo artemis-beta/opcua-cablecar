@@ -1,7 +1,7 @@
 import asyncio
 import enum
-import typing
 import logging
+import typing
 
 import asyncua.sync
 
@@ -58,15 +58,24 @@ class Winder:
 
     def _create_objects(self) -> None:
         self._objects["STATUS"] = self._server.add_variable(
-            self._namespace, f"{self._name.upper()}_STATUS", f"{self._name} Winder Status", cablecar.enum_member_str(Status.STOPPED)
+            self._namespace,
+            f"{self._name.upper()}_STATUS",
+            f"{self._name} Winder Status",
+            cablecar.enum_member_str(Status.STOPPED),
         )
 
         self._objects["CONTROLLER"] = self._server.add_variable(
-            self._namespace, f"{self._name.upper()}_CONTROLLER", f"{self._name} Winder Controller", cablecar.enum_member_str(Controller.NONE)
+            self._namespace,
+            f"{self._name.upper()}_CONTROLLER",
+            f"{self._name} Winder Controller",
+            cablecar.enum_member_str(Controller.NONE),
         )
 
         self._objects["SPEED"] = self._server.add_variable(
-            self._namespace, f"{self._name.upper()}_SPEED", f"{self._name} Winder Speed", 0.0
+            self._namespace,
+            f"{self._name.upper()}_SPEED",
+            f"{self._name} Winder Speed",
+            0.0,
         )
 
         self._objects["CONTROLLER"].set_writable()
@@ -81,7 +90,7 @@ class Winder:
 
     @controller.setter
     @cablecar.ignore_no_change
-    def controller(self,  value: Controller) -> None:
+    def controller(self, value: Controller) -> None:
         self._logger.info(f"CONTROLLER={value}")
         self._objects["CONTROLLER"].set_value(cablecar.enum_member_str(value))
 
